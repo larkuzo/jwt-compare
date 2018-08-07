@@ -26,12 +26,15 @@ func result(time int64, size int, transfer int64) Result {
 	return Result{time, size, transfer}
 }
 
+// Configuration
 const TestCount = 50
+const RSAKeySize = 512
+const HMACKeySize = 24
 
 func main() {
-	rsaPrivateKey, _ := rsa.GenerateKey(rand.Reader, 512)
+	rsaPrivateKey, _ := rsa.GenerateKey(rand.Reader, RSAKeySize)
 	ecdsaPrivateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	hmacKey := make([]byte, 24)
+	hmacKey := make([]byte, HMACKeySize)
 	rand.Read(hmacKey)
 
 	// First test JWT
@@ -48,7 +51,7 @@ func main() {
 
 	http.HandleFunc("/rsa", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		token := jwtRSA(rsaPrivateKey, map[string]interface{}{"data": "this is a signed token"})
+		token := jwtRSA(rsaPrivateKey, payload)
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
@@ -57,7 +60,7 @@ func main() {
 
 	http.HandleFunc("/ecdsa", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		token := jwtECDSA(ecdsaPrivateKey, map[string]interface{}{"data": "this is a signed token"})
+		token := jwtECDSA(ecdsaPrivateKey, payload)
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
@@ -66,7 +69,7 @@ func main() {
 
 	http.HandleFunc("/hmac", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		token := jwtHMAC(hmacKey, map[string]interface{}{"data": "this is a signed token"})
+		token := jwtHMAC(hmacKey, payload)
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
