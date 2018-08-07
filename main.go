@@ -112,24 +112,18 @@ func main() {
 	}
 
 	// Write result
-	fmt.Println("RSA")
-	fmt.Println("generate (ns),length,transfer (ns)")
 	for i := 0; i < TestCount; i++ {
 		fmt.Print(rsaResult[i].time, ",", rsaResult[i].size, ",", rsaResult[i].transfer)
 		fmt.Println()
 	}
 
 	fmt.Println()
-	fmt.Println("ECDSA")
-	fmt.Println("generate (ns),length,transfer (ns)")
 	for i := 0; i < TestCount; i++ {
 		fmt.Print(ecdsaResult[i].time, ",", ecdsaResult[i].size, ",", ecdsaResult[i].transfer)
 		fmt.Println()
 	}
 
 	fmt.Println()
-	fmt.Println("HMAC")
-	fmt.Println("generate (ns),length,transfer (ns)")
 	for i := 0; i < TestCount; i++ {
 		fmt.Print(hmacResult[i].time, ",", hmacResult[i].size, ",", hmacResult[i].transfer)
 		fmt.Println()
