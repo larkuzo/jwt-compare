@@ -12,17 +12,38 @@ import (
 	"net/http"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 )
+
+type Result struct {
+	time     int64
+	size     int
+	transfer int64
+}
+
+func result(time int64, size int, transfer int64) Result {
+	return Result{time, size, transfer}
+}
+
+const TestCount = 50
 
 func main() {
 	rsaPrivateKey, _ := rsa.GenerateKey(rand.Reader, 512)
 	ecdsaPrivateKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	hmacKey := []byte("secret")
+	hmacKey := make([]byte, 24)
+	rand.Read(hmacKey)
 
-	// First test
-	jwtRSA(rsaPrivateKey, map[string]interface{}{"data": "this is a signed token"})
-	jwtECDSA(ecdsaPrivateKey, map[string]interface{}{"data": "this is a signed token"})
-	jwtHMAC(hmacKey, map[string]interface{}{"data": "this is a signed token"})
+	// First test JWT
+	payload := map[string]interface{}{"data": "this is a signed token"}
+	jwtRSA(rsaPrivateKey, payload)
+	jwtECDSA(ecdsaPrivateKey, payload)
+	jwtHMAC(hmacKey, payload)
+
+	// Preparation
+	num := TestCount
+	rsaResult := make([]Result, num)
+	ecdsaResult := make([]Result, num)
+	hmacResult := make([]Result, num)
 
 	http.HandleFunc("/rsa", func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -30,8 +51,7 @@ func main() {
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
-		fmt.Println(end.Nanoseconds())
-		fmt.Println(len(token))
+		rsaResult[TestCount-num] = result(end.Nanoseconds(), len(token), 0)
 	})
 
 	http.HandleFunc("/ecdsa", func(w http.ResponseWriter, r *http.Request) {
@@ -40,8 +60,7 @@ func main() {
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
-		fmt.Println(end.Nanoseconds())
-		fmt.Println(len(token))
+		ecdsaResult[TestCount-num] = result(end.Nanoseconds(), len(token), 0)
 	})
 
 	http.HandleFunc("/hmac", func(w http.ResponseWriter, r *http.Request) {
@@ -50,75 +69,70 @@ func main() {
 		end := time.Since(start)
 		data, _ := json.Marshal(token)
 		w.Write(data)
-		fmt.Println(end.Nanoseconds())
-		fmt.Println(len(token))
+		hmacResult[TestCount-num] = result(end.Nanoseconds(), len(token), 0)
 	})
 
-	go http.ListenAndServe(":8080", nil)
+	// Start server
+	if port, exists := os.LookupEnv("PORT"); exists {
+		go http.ListenAndServe(":"+port, nil)
+	} else {
+		go http.ListenAndServe(":8080", nil)
+	}
 
 	var response *http.Response
-	for i := 0; i < 50; i++ {
+	var start time.Time
+
+	// First test Request
+	response, _ = http.Get("http://localhost:8080/rsa")
+	ioutil.ReadAll(response.Body)
+	response, _ = http.Get("http://localhost:8080/ecdsa")
+	ioutil.ReadAll(response.Body)
+	response, _ = http.Get("http://localhost:8080/hmac")
+	ioutil.ReadAll(response.Body)
+
+	// Server test and measure
+	for num > 0 {
+		start = time.Now()
 		response, _ = http.Get("http://localhost:8080/rsa")
 		ioutil.ReadAll(response.Body)
+		rsaResult[TestCount-num].transfer = time.Since(start).Nanoseconds()
+
+		start = time.Now()
 		response, _ = http.Get("http://localhost:8080/ecdsa")
 		ioutil.ReadAll(response.Body)
+		ecdsaResult[TestCount-num].transfer = time.Since(start).Nanoseconds()
+
+		start = time.Now()
 		response, _ = http.Get("http://localhost:8080/hmac")
 		ioutil.ReadAll(response.Body)
-	}
-}
+		hmacResult[TestCount-num].transfer = time.Since(start).Nanoseconds()
 
-func testJWT() {
-	//op := 50
-	//testRSA(rsaPrivateKey, op)
-	//testECDSA(ecdsaPrivateKey, op)
-	//testHMAC(hmacKey, op)
-}
-
-func testRSA(key *rsa.PrivateKey, op int) {
-	plot := make([]int64, op)
-	for i := 0; i < op; i++ {
-		start := time.Now()
-		jwtRSA(key, map[string]interface{}{"data": "this is a signed token"})
-		end := time.Since(start)
-		plot[i] = end.Nanoseconds()
+		num -= 1
 	}
+
+	// Write result
 	fmt.Println("RSA")
-	for i := 0; i < op; i++ {
-		fmt.Println(plot[i])
+	fmt.Println("generate (ns),length,transfer (ns)")
+	for i := 0; i < TestCount; i++ {
+		fmt.Print(rsaResult[i].time, ",", rsaResult[i].size, ",", rsaResult[i].transfer)
+		fmt.Println()
 	}
+
 	fmt.Println()
-}
-
-func testECDSA(key *ecdsa.PrivateKey, op int) {
-	plot := make([]int64, op)
-	for i := 0; i < op; i++ {
-		start := time.Now()
-		jwtECDSA(key, map[string]interface{}{"data": "this is a signed token"})
-		end := time.Since(start)
-		plot[i] = end.Nanoseconds()
-	}
-
 	fmt.Println("ECDSA")
-	for i := 0; i < op; i++ {
-		fmt.Println(plot[i])
+	fmt.Println("generate (ns),length,transfer (ns)")
+	for i := 0; i < TestCount; i++ {
+		fmt.Print(ecdsaResult[i].time, ",", ecdsaResult[i].size, ",", ecdsaResult[i].transfer)
+		fmt.Println()
 	}
+
 	fmt.Println()
-}
-
-func testHMAC(key []byte, op int) {
-	plot := make([]int64, op)
-	for i := 0; i < op; i++ {
-		start := time.Now()
-		jwtHMAC(key, map[string]interface{}{"data": "this is a signed token"})
-		end := time.Since(start)
-		plot[i] = end.Nanoseconds()
-	}
-
 	fmt.Println("HMAC")
-	for i := 0; i < op; i++ {
-		fmt.Println(plot[i])
+	fmt.Println("generate (ns),length,transfer (ns)")
+	for i := 0; i < TestCount; i++ {
+		fmt.Print(hmacResult[i].time, ",", hmacResult[i].size, ",", hmacResult[i].transfer)
+		fmt.Println()
 	}
-	fmt.Println()
 }
 
 func jwtRSA(privateKey *rsa.PrivateKey, payload interface{}) string {
