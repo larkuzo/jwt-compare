@@ -6,5 +6,6 @@
 ```
 cd $(go env GOPATH)/src
 git clone https://github.com/larkuzo/jwt-compare.git
+cd jwt-compare
 go run main.go > result.csv
 ```

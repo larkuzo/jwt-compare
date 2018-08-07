@@ -1,18 +1,19 @@
 package main
 
 import (
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/jwt"
-	"crypto/rsa"
-	"crypto/rand"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"time"
-	"fmt"
-	"net/http"
+	"crypto/rand"
+	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"time"
+
+	"gopkg.in/square/go-jose.v2"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 type Result struct {
